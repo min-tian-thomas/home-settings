@@ -1,0 +1,15 @@
+[http]
+	postBuffer = 1048576000
+	sslVerify = false
+[user]
+	email = min.tian.thomas@qq.com
+	name = Min Tian
+[core]
+	editor = nvim
+[alias]
+	co = checkout
+	ci = commit
+	st = status
+	br = branch
+	cp = cherry-pick
+	hist = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
