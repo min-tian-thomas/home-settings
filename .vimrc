@@ -37,7 +37,9 @@ filetype plugin indent on    " required
 "
 set number
 set mouse=a
-
+set hlsearch
+let mapleader=","
+set pastetoggle=<F12>
 
 " Env settings for you complete me
 let g:ycm_python_binary_path='/usr/bin/python'
@@ -68,10 +70,9 @@ nmap <C-f> :NERDTreeFind<CR>
 
 " Set for ayu-vim
 set termguicolors
-let ayucolor="light"
-let ayucolor="mirage"
 let ayucolor="dark"
 colorscheme ayu
+
 
 " Set for grep.vim
 nmap <leader><leader>g :Grep<CR>
