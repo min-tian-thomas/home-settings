@@ -17,16 +17,17 @@ function unset_proxy() {
 
 function ntmux() {
   	read -p "Input your session name (Enter to list existing ones): " SESSION_NAME
-	if [ "$SESSION_NAME" == "" ] ; then
+	if [ "$SESSION_NAME" == "" ]; then
 		echo "List all current sessions belongs to you on this host:"
 		tmux ls
+		read -p "Input your session name: " SESSION_NAME
+		tmux attach -t $SESSION_NAME
+		if [ $? -eq 0 ]; then
+                	return
+		fi
         fi
 	
-	read -p "Input your session name: " SESSION_NAME
-	tmux attach -t $SESSION_NAME
-	if [ !$? ];  then
-		tmux new -s $SESSION_NAME
-	fi    
+	tmux new -s $SESSION_NAME
 }
 
 # Useful unarchiver!
