@@ -54,9 +54,9 @@ class ActionGroup {
 
 class GroupBarrier {
  public:
-  GroupBarrier(const std::vector<std::vector<std::string> >& groups) {
-    // make sure of no resizing happens in the middle so return iterator will be safe
-    mAlreadyTriggeredGroups.reserve(groups.size());
+  GroupBarrier() = default;
+  GroupBarrier(const std::vector<std::vector<std::string> >& groups) { Init(groups); }
+  void Init(const std::vector<std::vector<std::string> >& groups) {
     for (const auto& sources : groups) {
       for (const auto& source : sources) {
         mSources.emplace_back(source);
@@ -144,7 +144,8 @@ class GroupBarrier {
   std::pair<std::uint64_t, TriggeredGroupsRange> _ArriveSource(int sourceIdx) {
     mActivedSources |= 1ul << sourceIdx;
     std::uint64_t requiredSources = 0ul;
-    GroupIter     first           = mAlreadyTriggeredGroups.end();
+
+    int triggeredGroups = 0;
     for (const auto& grp : mGroups) {
       auto it = std::find(mAlreadyTriggeredGroups.begin(), mAlreadyTriggeredGroups.end(), &grp);
       // Not yet triggered group
@@ -152,23 +153,124 @@ class GroupBarrier {
         if (grp.CanTrigger(mActivedSources)) {
           requiredSources |= grp.GetGroupId();
           mAlreadyTriggeredGroups.emplace_back(&grp);
+          ++triggeredGroups;
         }
       }
     }
-    return std::make_pair(requiredSources, std::make_pair(first, mAlreadyTriggeredGroups.end()));
+    return std::make_pair(requiredSources,
+                          std::make_pair(mAlreadyTriggeredGroups.end() - triggeredGroups,
+                                         mAlreadyTriggeredGroups.end()));
   }
 };
 
+template <typename T, size_t Size>
 class TimeSequenceBuffer {
  public:
-  TimeSequenceBuffer(size_t size);
+  TimeSequenceBuffer() = default;
 
- private:
-  struct ValueType {
-    std::uint64_t insertTime;
-    std::uint64_t eventTime;
-    GroupBarrier  barrier;
+  template <typename... Args>
+  void Init(Args&&... args) {
+    for (auto& item : mEvents) {
+      { item.second.Init(std::forward<Args>(args)...); }
+    }
+  }
+
+  using InsertTime = std::uint64_t;
+  using BufferType = std::array<std::pair<InsertTime, T>, Size>;
+
+  // forward declration
+  template <typename Item>
+  class Iterator;
+  using iterator       = Iterator<T>;
+  using const_iterator = Iterator<const T>;
+
+  // Get new buffer for events
+  iterator GetBuffer(std::uint64_t insertTime) {
+    if (mWriteIndex - mReadIndex == Size) {
+      // Will overwrite buffer pending for purging
+      iterator it{mReadIndex, this};
+      it->Reset();
+      ++mReadIndex;
+    }
+
+    iterator ret{mWriteIndex++, this};
+    ret.SetTime(insertTime);
+
+    return ret;
+  }
+
+  template <typename UnaryPredicate>
+  iterator FindIf(UnaryPredicate p) {
+    return std::find_if(begin(), end(), p);
+  }
+
+  // purge data to certain position
+  void PurgeUntil(iterator itPos) {
+    for (auto it = begin(); it != itPos; ++it) {
+      it->Reset();
+      ++mReadIndex;
+    }
+    // purge current one as well
+    itPos->Reset();
+    ++mReadIndex;
+  }
+
+  void PurgeUntil(std::uint64_t time) {
+    // Items are ordered by insert time
+    for (auto it = begin(); it.GetTime() <= time && it != end(); ++it) {
+      it->Reset();
+      ++mReadIndex;
+    }
+  }
+
+ public:
+  BufferType    mEvents;
+  std::uint64_t mReadIndex  = 0;
+  std::uint64_t mWriteIndex = 0;
+
+  template <typename Item>
+  class Iterator : public std::iterator<std::forward_iterator_tag, Item> {
+   private:
+    std::uint64_t       idx     = 0;
+    TimeSequenceBuffer* pBuffer = nullptr;
+
+   public:
+    Iterator(std::uint64_t i = 0, TimeSequenceBuffer* p = nullptr)
+        : idx(i),
+          pBuffer(p) {}
+
+    void          SetTime(std::uint64_t time) { pBuffer->mEvents[idx % Size].first = time; }
+    std::uint64_t GetTime() const { return pBuffer->mEvents[idx % Size].first; }
+
+    Item& operator*() { return pBuffer->mEvents[idx % Size].second; }
+    Item* operator->() { return &(pBuffer->mEvents[idx % Size].second); }
+
+    Iterator& operator++() {
+      idx++;
+      return *this;
+    }
+
+    Iterator operator++(int) {
+      Iterator tmp = *this;
+      ++(*this);
+      return tmp;
+    }
+
+    friend bool operator==(Iterator lhs, Iterator rhs) {
+      return lhs.idx == rhs.idx && lhs.pBuffer == rhs.pBuffer;
+    }
+
+    friend bool operator!=(Iterator lhs, Iterator rhs) {
+      return lhs.idx != rhs.idx || lhs.pBuffer != rhs.pBuffer;
+    }
+
+    // iterator -> const_iterator
+    operator Iterator<const T>() const { return Iterator<const T>(idx, pBuffer); }
   };
-  static constexpr size_t           CACHE_SIZE = 512;
-  std::array<ValueType, CACHE_SIZE> mEvents;
+
+  iterator       begin() { return iterator{mReadIndex, this}; }
+  const_iterator begin() const { return const_iterator{mReadIndex, this}; }
+  iterator       end() { return iterator{mWriteIndex, this}; }
+  const_iterator end() const { return iterator{mWriteIndex, this}; }
+  size_t         size() const { return mWriteIndex - mReadIndex; }
 };

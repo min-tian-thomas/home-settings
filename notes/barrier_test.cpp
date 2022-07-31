@@ -339,3 +339,241 @@ TEST(GroupBarrierTest, TestArriveSource4) {
     EXPECT_TRUE(barrier.AllTriggered());
   }
 }
+
+TEST(GroupBarrierTest, TimeSequenceBufferConstructor) {
+  struct DataType {
+    std::uint64_t evtTime = 0;
+    GroupBarrier  barrier;
+
+    void Init(const GroupBarrier& other) { barrier = other; }
+    void Reset() {
+      evtTime = 0;
+      barrier.Reset();
+    }
+  };
+
+  GroupBarrier barrier({{"A", "B"}, {"C", "B"}, {"C"}});
+  auto         sourceA = barrier.GetSourceIndex("A");
+  auto         sourceB = barrier.GetSourceIndex("B");
+  auto         sourceC = barrier.GetSourceIndex("C");
+
+  TimeSequenceBuffer<DataType, 8> buffer;
+  buffer.Init(barrier);
+  EXPECT_EQ(0ul, buffer.size());
+  EXPECT_EQ(buffer.end(), buffer.begin());
+
+  std::string output;
+  auto        visitor = [&output](const char* data, size_t size) {
+    // append data to output
+    output.append(data, size);
+  };
+
+  EXPECT_EQ(buffer.end(), buffer.FindIf([](auto& p) { return p.evtTime == 10000001; }));
+  auto it     = buffer.GetBuffer(1);
+  it->evtTime = 10000001;
+  {
+    auto [triggerInGroup, _] = it->barrier.ArriveSource(sourceA, visitor, "A", 1);
+    EXPECT_FALSE(triggerInGroup);
+    EXPECT_EQ(1ul, buffer.size());
+    EXPECT_FALSE(it->barrier.AllTriggered());
+  }
+  {
+    auto iter = buffer.FindIf([](auto& p) { return p.evtTime == 10000001; });
+    EXPECT_EQ(it, iter);
+    auto [triggerInGroup, _] = iter->barrier.ArriveSource(sourceB, visitor, "B", 1);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("AB", output);
+    output.clear();
+    EXPECT_EQ(1ul, buffer.size());
+    EXPECT_FALSE(iter->barrier.AllTriggered());
+  }
+  {
+    auto iter = buffer.FindIf([](auto& p) { return p.evtTime == 10000001; });
+    EXPECT_EQ(it, iter);
+    auto [triggerInGroup, _] = iter->barrier.ArriveSource(sourceC, visitor, "C", 1);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("BC", output);
+    output.clear();
+    EXPECT_EQ(1ul, buffer.size());
+    EXPECT_TRUE(iter->barrier.AllTriggered());
+    buffer.PurgeUntil(iter);
+  }
+
+  EXPECT_EQ(0ul, buffer.size());
+}
+
+TEST(GroupBarrierTest, TimeSequenceBufferPurgeUntilAllTriggered) {
+  struct DataType {
+    std::uint64_t evtTime = 0;
+    GroupBarrier  barrier;
+
+    void Init(const GroupBarrier& other) { barrier = other; }
+    void Reset() {
+      evtTime = 0;
+      barrier.Reset();
+    }
+  };
+
+  GroupBarrier barrier({{"xgb", "nn"}, {"xgb", "nn", "insert"}});
+  auto         sourceXGB    = barrier.GetSourceIndex("xgb");
+  auto         sourceNN     = barrier.GetSourceIndex("nn");
+  auto         sourceInsert = barrier.GetSourceIndex("insert");
+
+  TimeSequenceBuffer<DataType, 8> buffer;
+  buffer.Init(barrier);
+  EXPECT_EQ(0ul, buffer.size());
+  EXPECT_EQ(buffer.end(), buffer.begin());
+
+  std::string output;
+  auto        visitor = [&output](const char* data, size_t size) {
+    // append data to output
+    output.append(data, size);
+  };
+
+  EXPECT_EQ(buffer.end(), buffer.FindIf([](auto& p) { return p.evtTime == 10000001; }));
+  auto it1     = buffer.GetBuffer(1);
+  it1->evtTime = 10000001;
+  {
+    auto [triggerInGroup, _] = it1->barrier.ArriveSource(sourceXGB, visitor, "XGB|", 4);
+    EXPECT_FALSE(triggerInGroup);
+    EXPECT_EQ(1ul, buffer.size());
+    EXPECT_FALSE(it1->barrier.AllTriggered());
+  }
+  {
+    auto iter = buffer.FindIf([](auto& p) { return p.evtTime == 10000001; });
+    EXPECT_EQ(it1, iter);
+    auto [triggerInGroup, _] = iter->barrier.ArriveSource(sourceNN, visitor, "NN|", 3);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("NN|XGB|", output);
+    output.clear();
+    EXPECT_EQ(1ul, buffer.size());
+    EXPECT_FALSE(iter->barrier.AllTriggered());
+  }
+
+  EXPECT_EQ(buffer.end(), buffer.FindIf([](auto& p) { return p.evtTime == 10000002; }));
+  auto it2     = buffer.GetBuffer(2);
+  it2->evtTime = 10000002;
+  {
+    auto [triggerInGroup, _] = it2->barrier.ArriveSource(sourceXGB, visitor, "XGB|", 4);
+    EXPECT_FALSE(triggerInGroup);
+    EXPECT_EQ(2ul, buffer.size());
+    EXPECT_FALSE(it2->barrier.AllTriggered());
+  }
+  {
+    auto iter = buffer.FindIf([](auto& p) { return p.evtTime == 10000002; });
+    EXPECT_EQ(it2, iter);
+    auto [triggerInGroup, groupRange] = iter->barrier.ArriveSource(sourceNN, visitor, "NN|", 3);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("NN|XGB|", output);
+    output.clear();
+    EXPECT_EQ(2ul, buffer.size());
+    EXPECT_FALSE(iter->barrier.AllTriggered());
+    auto it = groupRange.first;
+    EXPECT_EQ("[xgb, nn]", (*it++)->GetName());
+    EXPECT_EQ(groupRange.second, it);
+  }
+  {
+    auto iter = buffer.FindIf([](auto& p) { return p.evtTime == 10000002; });
+    EXPECT_EQ(it2, iter);
+    auto [triggerInGroup, groupRange] =
+        iter->barrier.ArriveSource(sourceInsert, visitor, "Insert|", 7);
+    EXPECT_TRUE(triggerInGroup);
+    auto it = groupRange.first;
+    EXPECT_EQ("[xgb, nn, insert]", (*it++)->GetName());
+    EXPECT_EQ(groupRange.second, it);
+    EXPECT_EQ("Insert|NN|XGB|", output);
+    output.clear();
+    EXPECT_EQ(2ul, buffer.size());
+    EXPECT_TRUE(iter->barrier.AllTriggered());
+    buffer.PurgeUntil(iter);
+    EXPECT_EQ(0ul, buffer.size());
+  }
+}
+
+TEST(GroupBarrierTest, TimeSequenceBufferPurgeUntilTime) {
+  struct DataType {
+    std::uint64_t evtTime = 0;
+    GroupBarrier  barrier;
+
+    void Init(const GroupBarrier& other) { barrier = other; }
+    void Reset() {
+      evtTime = 0;
+      barrier.Reset();
+    }
+  };
+
+  GroupBarrier          barrier({{"xgb", "nn"}, {"xgb", "nn", "insert"}});
+  [[maybe_unused]] auto sourceXGB    = barrier.GetSourceIndex("xgb");
+  [[maybe_unused]] auto sourceNN     = barrier.GetSourceIndex("nn");
+  [[maybe_unused]] auto sourceInsert = barrier.GetSourceIndex("insert");
+
+  TimeSequenceBuffer<DataType, 8> buffer;
+  buffer.Init(barrier);
+  EXPECT_EQ(0ul, buffer.size());
+  EXPECT_EQ(buffer.end(), buffer.begin());
+
+  std::string output;
+  auto        visitor = [&output](const char* data, size_t size) {
+    // append data to output
+    output.append(data, size);
+  };
+
+  for (unsigned i = 0; i < 8; ++i) {
+    auto it                  = buffer.GetBuffer(i);
+    it->evtTime              = 10000000 + i;
+    auto [triggerInGroup, _] = it->barrier.ArriveSource(sourceXGB, visitor, "XGB|", 4);
+    EXPECT_FALSE(triggerInGroup);
+    EXPECT_EQ(i + 1, buffer.size());
+    EXPECT_FALSE(it->barrier.AllTriggered());
+  }
+  EXPECT_EQ(8ul, buffer.size());
+  {
+    // overwrite one in buffer but size won't chagne
+    auto it                  = buffer.GetBuffer(8);
+    it->evtTime              = 10000000 + 8;
+    auto [triggerInGroup, _] = it->barrier.ArriveSource(sourceXGB, visitor, "XGB|", 4);
+    EXPECT_FALSE(triggerInGroup);
+    EXPECT_EQ(8, buffer.size());
+    EXPECT_FALSE(it->barrier.AllTriggered());
+  }
+  auto itBeg = buffer.begin();
+  EXPECT_EQ(10000001, itBeg->evtTime);
+  buffer.PurgeUntil(5);
+  // We still have 6,7,8
+  EXPECT_EQ(3, buffer.size());
+  itBeg = buffer.begin();
+  EXPECT_EQ(10000006, itBeg->evtTime);
+
+  for (unsigned i = 9; i < 14; ++i) {
+    auto it                  = buffer.GetBuffer(i);
+    it->evtTime              = 10000000 + i;
+    auto [triggerInGroup, _] = it->barrier.ArriveSource(sourceXGB, visitor, "XGB|", 4);
+    EXPECT_FALSE(triggerInGroup);
+  }
+
+  // We still have 6,7,8,9,10,11,12,13
+  EXPECT_EQ(8, buffer.size());
+  itBeg = buffer.begin();
+  EXPECT_EQ(10000006, itBeg->evtTime);
+  {
+    auto iter                = buffer.FindIf([](auto& p) { return p.evtTime == 10000009; });
+    auto [triggerInGroup, _] = iter->barrier.ArriveSource(sourceNN, visitor, "NN|", 3);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("NN|XGB|", output);
+    output.clear();
+    EXPECT_FALSE(iter->barrier.AllTriggered());
+  }
+  {
+    auto iter                = buffer.FindIf([](auto& p) { return p.evtTime == 10000009; });
+    auto [triggerInGroup, _] = iter->barrier.ArriveSource(sourceInsert, visitor, "Insert|", 7);
+    EXPECT_TRUE(triggerInGroup);
+    EXPECT_EQ("Insert|NN|XGB|", output);
+    output.clear();
+    EXPECT_TRUE(iter->barrier.AllTriggered());
+    buffer.PurgeUntil(iter);
+  }
+  // We still have 10,11,12,13
+  EXPECT_EQ(4, buffer.size());
+  itBeg = buffer.begin();
+  EXPECT_EQ(10000010, itBeg->evtTime);
+}
