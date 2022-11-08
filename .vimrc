@@ -69,9 +69,9 @@ nmap <C-t> :NERDTreeToggle<CR>
 nmap <C-f> :NERDTreeFind<CR>
 
 " Set for ayu-vim
-set termguicolors
-let ayucolor="dark"
-colorscheme ayu
+" set termguicolors
+" let ayucolor="mirage"
+colorscheme desert 
 
 
 " Set for grep.vim

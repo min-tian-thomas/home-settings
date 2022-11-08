@@ -5,7 +5,7 @@
 	email = min.tian.thomas@qq.com
 	name = Min Tian
 [core]
-	editor = nvim
+	editor = vim
 [alias]
 	co = checkout
 	ci = commit

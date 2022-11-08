@@ -86,10 +86,8 @@ fi
 source ~/bashrc/aliases
 source ~/bashrc/exports
 source ~/bashrc/functions
-source /home/mintian/.bazel/bin/bazel-complete.bash
 
 # set for ssr proxy
 # see: https://jiayaoo3o.github.io/2020/06/23/%E8%AE%B0%E5%BD%95%E4%B8%80%E6%AC%A1WSL2%E7%9A%84%E7%BD%91%E7%BB%9C%E4%BB%A3%E7%90%86%E9%85%8D%E7%BD%AE/
 # if you don't use ssr then just call unset_proxy
 set_proxy
-gowork

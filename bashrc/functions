@@ -1,6 +1,8 @@
 function set_proxy() {
 	export windows_host=`cat /etc/resolv.conf|grep nameserver|awk '{print $2}'`
-	export ALL_PROXY=socks5://$windows_host:1080
+	#export ALL_PROXY=socks5://$windows_host:1080
+
+	export ALL_PROXY=http://$windows_host:1080
 	export HTTP_PROXY=$ALL_PROXY
 	export http_proxy=$ALL_PROXY
 	export HTTPS_PROXY=$ALL_PROXY
