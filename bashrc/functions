@@ -1,3 +1,47 @@
+function add_tmux_window() {
+  local window_name=$1
+  local cwd=$2
+
+  tmux new-window -t $session_name:$idx -n $window_name "mkdir -p $cwd; cd $cwd; bash -i"
+  for ((cmd_idx=3; cmd_idx<=$#; cmd_idx++))
+  do
+    #pick up args by idx
+    cmd=${!cmd_idx}
+    tmux send-keys -t ${session_name}:${idx} "$cmd"
+    tmux send-keys -t ${session_name}:${idx} ENTER
+  done
+  
+  idx=$((idx+1))
+}
+
+function setup_workspace() {
+  session_name=workspace
+  idx=1
+  
+  # start new tmux session
+  tmux new -s $session_name -d
+    
+  # add_tmux_window "jupyter-lab" "~/projects/workspace/polaris" "jupyter lab" 
+  add_tmux_window "logs" "/tmp/logs" "ls -l"
+  add_tmux_window "cores" "/tmp/cores" "ls -l"
+  add_tmux_window "shms" "/dev/shm" "ls -l"
+  add_tmux_window "fsf" "~/projects/workspace/fsf" "ls -l"
+  add_tmux_window "polaris" "~/projects/workspace/polaris"
+ 
+
+  tmux select-window -t $session_name:0
+  tmux -2 attach-session -t $session_name
+}
+
+function test_much() {
+   for (( idx=1; idx < 5000; idx++ ))
+   do
+      echo "Running [$@] for [$idx] times"
+      $@
+      if [[ $? != 0 ]]; then break; fi
+  done
+}
+
 function set_proxy() {
 	export windows_host=`cat /etc/resolv.conf|grep nameserver|awk '{print $2}'`
 	#export ALL_PROXY=socks5://$windows_host:1080

@@ -23,6 +23,9 @@ alias hisg='history | grep '
 alias psg='ps -ef | grep '
 alias vim='vim -p'
 
+gofsf='cd ~/projects/fsf'
+bb='bazel build'
+bt='bazel test'
 # Alias definitions.
 # You may want to put all your additions into a separate file like
 # ~/.bash_aliases, instead of adding them here directly.

@@ -1,4 +1,4 @@
-export PATH="$PATH:$HOME/bin:/home/mintian/.local/bin"
+export PATH="$HOME/go/bin:$HOME/bin:$HOME/.local/bin:$PATH"
 export GOPROXY=https://goproxy.io
 export EDITOR=nvim
 
