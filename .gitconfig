@@ -13,3 +13,5 @@
 	br = branch
 	cp = cherry-pick
 	hist = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
+[init]
+	defaultBranch = master
