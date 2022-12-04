@@ -2,7 +2,7 @@
 mkdir -p $HOME/projects/workspace
 
 PWD=`pwd`
-for path in .bashrc .gitconfig .tmux.conf .vimrc bashrc
+for path in .bashrc .git-prompt.sh .gitconfig .tmux.conf .vimrc bashrc
 do
     ln -sf $PWD/$path $HOME/$path
 done

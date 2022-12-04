@@ -1,3 +1,21 @@
+function venv()
+{
+  NAME=$1
+  if [ "$NAME" == "" ]; then
+    NAME=".venv"
+  fi
+
+  if [ "$VIRTUAL_ENV" != "" ]; then
+    deactivate
+  fi 
+  
+  if [ -d "$NAME" ]; then
+    source $NAME/bin/activate
+  fi
+}
+
+# add_tmux_window(name, cwd, commands)
+# e.g. add_tmux_window 1 "polaris" "projects/workspace/polaris" "ls"
 function add_tmux_window() {
   local window_name=$1
   local cwd=$2
@@ -21,7 +39,7 @@ function setup_workspace() {
   # start new tmux session
   tmux new -s $session_name -d
     
-  # add_tmux_window "jupyter-lab" "~/projects/workspace/polaris" "jupyter lab" 
+  # add_tmux_window "jupyter-lab" "/home/thomas/projects/workspace/jupyter-workspace" "jupyter lab" 
   add_tmux_window "logs" "/tmp/logs" "ls -l"
   add_tmux_window "cores" "/tmp/cores" "ls -l"
   add_tmux_window "shms" "/dev/shm" "ls -l"
@@ -111,3 +129,71 @@ function giveme ()
 {
     sudo apt-get install "$@"
 }
+
+function compiledb()
+{
+  echo "Generate cmake files in build dir and create compile_commands.json"
+  [ ! -d "build" ] && mkdir build
+  cd build 
+  cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 $@ .. 
+  ln -sf build/compile_commands.json ../compile_commands.json 
+  cd ..
+}
+
+# used for less binlog
+function bless()
+{
+  tail -c0 -F $1 | bread
+}
+
+get_PS1(){
+    # set variable identifying the chroot you work in (used in the prompt below)
+    if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+        debian_chroot=$(cat /etc/debian_chroot)
+    fi
+
+    # set a fancy prompt (non-color, unless we know we "want" color)
+    case "$TERM" in
+        xterm-color|*-256color) color_prompt=yes;;
+    esac
+
+    # uncomment for a colored prompt, if the terminal has the capability; turned
+    # off by default to not distract the user: the focus in a terminal window
+    # should be on the output of commands, not on the prompt
+    local force_color_prompt=yes
+
+    if [ -n "$force_color_prompt" ]; then
+        if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+        # We have color support; assume it's compliant with Ecma-48
+        # (ISO/IEC-6429). (Lack of such support is extremely rare, and such
+        # a case would tend to support setf rather than setaf.)
+        color_prompt=yes
+        else
+        color_prompt=
+        fi
+    fi
+
+    if [ "$color_prompt" = yes ]; then
+        PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\[\033[01;36m\]$(__git_ps1)\[\033[00m\]\n\$ '
+    else
+        PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w$(__git_ps1)\n\$ '
+    fi
+    unset color_prompt force_color_prompt
+
+    # If this is an xterm set the title to user@host:dir
+    case "$TERM" in
+    xterm*|rxvt*)
+        PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h:\w\a\]$PS1"
+        ;;
+    *)
+        ;;
+    esac
+
+    # disable activate virtual env name set
+    export VIRTUAL_ENV_DISABLE_PROMPT=1
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        local virt_env=`printf "($(echo $VIRTUAL_ENV | awk -F "/" '{print $NF}'))"`;
+        PS1="${virt_env} $PS1";
+    fi
+}
+
