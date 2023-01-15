@@ -1,0 +1,10 @@
+Flask
+Flask-Caching
+Flask-Log-Request-ID
+redis
+datetime
+Pytest
+gunicorn
+configparser
+psycopg2-binary
+gevent
