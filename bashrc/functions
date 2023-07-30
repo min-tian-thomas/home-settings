@@ -1,6 +1,47 @@
+function clone()
+{
+    local github_url=$1
+    if [ "$github_url" == "" ]; then
+      echo "Error: run clone with github_url"
+      exit 1
+    fi
+    local meta=""
+    local project=""
+    
+    github_url="${github_url#https://github.com/}"
+    
+    if [ "$github_url" == $1 ]; then
+       github_url="${github_url#git@github.com:}"
+    fi
+    
+    if [ "$github_url" == $1 ]; then
+      echo "Error: $1 is not prefixed with https://github.com/ or git@github.com:"
+      exit 1
+    fi    
+
+    IFS='/' read -ra url_parts <<< "${github_url}"
+
+    echo "Got $url_parts with $github_url"
+    # Extract the meta and proj parts
+    if [ "${#url_parts[@]}" -ge 2 ]; then
+      meta="${url_parts[0]}"
+      proj="${url_parts[1]%.*}" # Remove the ".git" suffix
+    fi
+  
+    # Clone the project into $WORKSPACE/fsf/$meta/$proj
+    if [ -n "$meta" ] && [ -n "$proj" ]; then
+        WORKSPACE="/home/thomas/projects/workspace"
+        clone_url="https://github.com/$meta/$proj.git"
+        git clone "$clone_url" "$WORKSPACE/fsf/$meta/$proj"
+        echo "Cloned $clone_url into $WORKSPACE/fsf/$meta/$proj"
+    else
+        echo "Failed to extract meta and proj from the GitHub URL."
+    fi
+}
+
 function venv()
 {
-  NAME=$1
+  local NAME=$1
   if [ "$NAME" == "" ]; then
     NAME=".venv"
   fi
@@ -39,7 +80,7 @@ function setup_workspace() {
   # start new tmux session
   tmux new -s $session_name -d
     
-  # add_tmux_window "jupyter-lab" "/home/thomas/projects/workspace/jupyter-workspace" "jupyter lab" 
+  add_tmux_window "jupyter-lab" "/home/thomas/projects/workspace/jupyter-workspace" "jupyter lab" 
   add_tmux_window "logs" "/tmp/logs" "ls -l"
   add_tmux_window "cores" "/tmp/cores" "ls -l"
   add_tmux_window "shms" "/dev/shm" "ls -l"

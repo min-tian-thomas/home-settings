@@ -40,6 +40,9 @@ set mouse=a
 set hlsearch
 let mapleader=","
 set pastetoggle=<F12>
+set expandtab
+set tabstop=4
+set shiftwidth=4
 
 " Env settings for you complete me
 let g:ycm_python_binary_path='/usr/bin/python'
