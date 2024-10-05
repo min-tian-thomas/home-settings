@@ -66,7 +66,6 @@ autocmd FileType c,cpp vmap <buffer> :YcmCompleter GetDocImprecise<CR>
 autocmd FileType c,cpp vmap <buffer> gd :YcmCompleter GoToImprecise<CR>
 
 " Key bindings for NERDTree
-nmap <leader>n :NERDTreeFocus<CR>
 nmap <C-n> :NERDTree<CR>
 nmap <C-t> :NERDTreeToggle<CR>
 nmap <C-f> :NERDTreeFind<CR>
@@ -79,3 +78,7 @@ colorscheme desert
 
 " Set for grep.vim
 nmap <leader><leader>g :Grep<CR>
+
+" personal settings
+nmap <leader>n :set number!<CR>
+

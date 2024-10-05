@@ -92,20 +92,57 @@ function setup_workspace() {
   tmux -2 attach-session -t $session_name
 }
 
-function test_much() {
-   for (( idx=1; idx < 5000; idx++ ))
-   do
-      echo "Running [$@] for [$idx] times"
-      $@
-      if [[ $? != 0 ]]; then break; fi
-  done
+test_much() {
+    # Default values
+    local count=1000
+    local binary=""
+    local args=()
+
+    # Parse command-line arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t)
+                count=$2
+                shift 2
+                ;;
+            *)
+                if [[ -z "$binary" ]]; then
+                    binary=$1
+                else
+                    args+=("$1") # Collect all remaining arguments for the binary
+                fi
+                shift
+                ;;
+        esac
+    done
+
+    # Ensure the binary is provided
+    if [[ -z "$binary" ]]; then
+        echo "No binary specified."
+        echo "Usage: testMuch [-t count] binary_name [binary_args...]"
+        return 1
+    fi
+
+    # Run the binary in a loop for the specified number of times
+    for ((i=1; i<=count; i++)); do
+        echo "Running $binary ${args[*]} (Run $i/$count)"
+        
+        # Execute the binary with arguments
+        $binary "${args[@]}"
+        
+        # Check if the binary execution failed
+        if [[ $? -ne 0 ]]; then
+            echo "Execution failed at run $i. Stopping."
+            return 1
+        fi
+    done
+
+    echo "All runs successful."
 }
 
 function set_proxy() {
 	export windows_host=`cat /etc/resolv.conf|grep nameserver|awk '{print $2}'`
-	#export ALL_PROXY=socks5://$windows_host:1080
-
-	export ALL_PROXY=http://$windows_host:1080
+	export ALL_PROXY=http://$windows_host:12333
 	export HTTP_PROXY=$ALL_PROXY
 	export http_proxy=$ALL_PROXY
 	export HTTPS_PROXY=$ALL_PROXY
