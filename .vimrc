@@ -56,7 +56,6 @@ nmap g  :YcmCompleter GoTo<CR>
 nmap gd :YcmCompleter GoToDefinition<CR>
 nmap gy :YcmCompleter GoToDeclaration<CR>
 nmap gr :YcmCompleter GoToReferences<CR>
-nmap <F2> viwy:YcmCompleter RefactorRename<space><c-r>0
 nmap <leader>f :YcmCompleter FixIt<CR>
 nmap F	:YcmCompleter Format<CR>
 
